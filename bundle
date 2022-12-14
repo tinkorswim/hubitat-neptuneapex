@@ -1,0 +1,26 @@
+#!/bin/bash
+BUNDLE_NAME=apex
+NAMESPACE=tinkorswim
+WORKING_DIR=out/bundle
+ZIP_NAME=apex.zip
+INSTALL_FILENAME=install.txt
+UPDATE_FILENAME=update.txt
+MANIFEST=$WORKING_DIR/$INSTALL_FILENAME
+
+
+if [ -d "$WORKING_DIR" ]; then rm -Rf $WORKING_DIR; fi
+mkdir -p $WORKING_DIR
+
+echo "$NAMESPACE">$MANIFEST
+echo "$BUNDLE_NAME">>$MANIFEST
+for filename in drivers/*.groovy; do 
+    cp $filename "$WORKING_DIR/$NAMESPACE.${filename##*/}"
+    echo driver $NAMESPACE.${filename##*/}>>$MANIFEST; 
+done
+#for filename in apps/*.groovy; do 
+#    cp $filename "$WORKING_DIR/$NAMESPACE.${filename##*/}"
+#    echo app $NAMESPACE.${filename##*/}>>$MANIFEST; 
+#done
+cp $WORKING_DIR/$INSTALL_FILENAME $WORKING_DIR/$UPDATE_FILENAME
+cd $WORKING_DIR
+zip -r ../$ZIP_NAME *
