@@ -282,7 +282,7 @@ void handleDeviceOutputResponse(hubitat.scheduling.AsyncResponse resp, Map data)
       else {
         getChildDevice(data.deviceNetworkId).updateAttribute(data.attribute, data.value)
       }
-      runInMillis(100, refreshStatus)
+      runInMillis(1000, refreshStatus)
       break
     default:
       log.error("error switching output status for did:${data.did}")
