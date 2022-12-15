@@ -1,5 +1,5 @@
 name: Build Apex Neptune Bridge
-run-name: ${{ github.actor }} is building Hubitat development VSCode extension 🚀
+run-name: ${{ github.actor }} is building Hubitat Apex Drivers 🚀
 on: [push]
 jobs:
   Package:
