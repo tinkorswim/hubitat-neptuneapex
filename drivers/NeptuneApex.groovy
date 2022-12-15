@@ -183,6 +183,11 @@ void handleChildDevices(Map deviceInfo) {
           value : apexInput.value,
           descriptionText : "Setting temperature value to ${apexInput.value}")
       }
+      else {
+        childSwitch?.sendEvent(name : 'value',
+          value : apexInput.value,
+          descriptionText : "Setting sensor value to ${apexInput.value}")
+      }
     }
   }
 }
@@ -204,18 +209,19 @@ Object loadChildInputDevice(Object apexInput, boolean create=true) {
   childSwitch = getChildDevice(getChildDeviceNetworkId(apexInput.did))
   if (childSwitch == null && create == true) {
     if ( getModuleTypeForInput(apexInput.did) == 'FMM' ) {
-      log.info "Creating new water sensor ${apexInput.name} (${apexInput.did})"
       if ( apexInput.type == 'in' ) {
-        driverName = 'Generic Component Temperature Sensor'
+        driverNamespace = 'tinkorswim'
+        driverName = 'Neptune Apex Sensor'
       }
       else {
         driverName = 'Generic Component Water Sensor'
       }
     }
     else {
-      driver = deviceTypeMap[apexInput.type] ?: 'Generic Component Switch'
-      log.info("Creating new device ${apexInput.name} (${apexInput.did}) with driver ${driver} ")
+      driverName = deviceTypeMap[apexInput.type] ?: 'Generic Component Switch'
     }
+
+    log.info("Creating new device - name[${apexInput.name}] did[(${apexInput.did})] type[${apexInput.type}] driver[${driverName}] ")
     childSwitch = addChildDevice( driverNamespace, driverName,
       getChildDeviceNetworkId(apexInput.did),[name:apexInput.name, label:apexInput.name])
   }
