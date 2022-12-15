@@ -2,7 +2,7 @@
 BUNDLE_NAME=apex
 NAMESPACE=tinkorswim
 WORKING_DIR=out/bundle
-ZIP_NAME=apex.zip
+ZIP_NAME=apex_bundle.zip
 INSTALL_FILENAME=install.txt
 UPDATE_FILENAME=update.txt
 MANIFEST=$WORKING_DIR/$INSTALL_FILENAME
