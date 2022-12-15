@@ -1,0 +1,10 @@
+{
+    "request": {
+        "url": "/rest/status",
+        "method": "GET"
+    },
+    "response": {
+        "status": 200,
+        "bodyFileName": "apex_sample_1_AC5.json"
+    }
+}

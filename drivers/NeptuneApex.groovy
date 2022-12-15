@@ -31,6 +31,8 @@ metadata {
 
   attribute 'pH', 'number'
   attribute 'feedCycle', 'number'
+  attribute 'salinity', 'number'
+  attribute 'ORP', 'number'
 
   command 'cleanUpChildren'
   command 'feedA'
@@ -38,6 +40,7 @@ metadata {
   command 'feedC'
   command 'feedD'
   command 'cancelFeed'
+  command 'clearAttributes'
 }
 
 preferences {
@@ -53,10 +56,10 @@ preferences {
     input name: 'devices',
       type: 'text', title: 'Devices',
       description: 'Only add these child devices (by did, ex.. 2_8, 2_1) * for all devices)',
-      defaultValue: ''
+      defaultValue: '*'
     input name: 'readOnly', type: 'bool', title: 'Read Only Mode',
-      description:"These devices can't control the Apex", defaultValue: true
-    input name: 'syncApexNames', type: 'bool', title: 'Auto-sync Apex device names', defaultValue: false
+      description:"These devices can't control the Apex", defaultValue: false
+    input name: 'syncApexNames', type: 'bool', title: 'Auto-sync Apex device names', defaultValue: true
     input name: 'debugEnable', type: 'bool', title: 'Enable debug logging', defaultValue: false
   }
 }
@@ -162,7 +165,7 @@ void handleChildDevices(Map deviceInfo) {
       childEnergy = getChildDevice(getChildDeviceNetworkId(state.devices[deviceName]))
       childEnergy?.updateAttribute('power', apexInput.value)
     }
-    if (['in', 'digital', 'Temp', 'pH'].contains(apexInput.type)) {
+    if (['in', 'digital', 'Temp', 'pH', 'Cond', 'ORP'].contains(apexInput.type)) {
       childSwitch = loadChildInputDevice(apexInput)
       if (childSwitch.hasCapability('WaterSensor')) {
         String waterState = apexInput.value == 0 ? 'dry' : 'wet'
@@ -235,6 +238,13 @@ String getModuleTypeForInput(String did) {
 void refresh() {
   if (debugEnable) log.debug('Refresh explicit call')
   refreshStatus()
+}
+
+void clearAttributes() {
+  device.getSupportedAttributes().each { attribute ->
+    log.debug("clearing attribute ${attribute}")
+    updateAttribute(attribute.name, 0)
+  }
 }
 
 void refreshStatus() {
@@ -320,7 +330,7 @@ void handleStatusResponse(hubitat.scheduling.AsyncResponse resp, Map data) {
 
 void updateBaseAttributes(Map deviceStatus) {
   //mapping apex attribute to device capability
-  ['base_Temp':'temperature', 'base_pH':'pH'].each { k, v ->
+  ['base_Temp':'temperature', 'base_pH':'pH', 'base_Cond':'salinity', 'base_ORP':'ORP'].each { k, v ->
     value = deviceStatus.inputs.find { input -> input.did == k }
     if (value) {
       updateAttribute(v, value.value)
