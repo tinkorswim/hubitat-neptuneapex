@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const REGEX_DRIVER_NAME = /definition\s*?\(.*?name:\s*(?:(?:""([^""]*)"")|(?:'([^']*)'))/gm;
 const NAMESPACE="tinkorswim";
 const MANIFEST_FILENAME="hpmManifest.json";
+const BASE_GITHUB_URL="https://github.com/tinkorswim/hubitat-neptuneapex/blob/";
 
 console.log("creating hubitat package manager manifest")
 
@@ -28,12 +29,14 @@ async function processFiles(type,manifest,newVersion){
   const dir = path.join(__dirname, type);
   const files = await fs.readdir(dir, { withFileTypes: true });
   for(const file of files){
-    const location = `https://github.com/tinkorswim/hubitat-neptuneapex/blob/${manifest.version}/${type}/${file.name}`;
+    const location = `${BASE_GITHUB_URL}${manifest.version}/${type}/${file.name}`;
     const existing = manifest[type].find(d=>d.location===location);
     if(!existing){
       manifest[type].push(await newEntry(dir+"/",file.name,location,newVersion));
     }
     else{
+      const newLocation = `${BASE_GITHUB_URL}${newVersion}/${type}/${file.name}`;
+      existing.location=newLocation;
       existing.version=newVersion;
     }
   }
