@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const REGEX_DRIVER_NAME = /definition\s*?\(.*?name:\s*(?:(?:""([^""]*)"")|(?:'([^']*)'))/gm;
 const NAMESPACE="tinkorswim";
 const MANIFEST_FILENAME="hpmManifest.json";
-const BASE_GITHUB_URL="https://github.com/tinkorswim/hubitat-neptuneapex/blob/";
+const BASE_GITHUB_URL="https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/";
 
 console.log("creating hubitat package manager manifest")
 
@@ -50,6 +50,8 @@ async function createManifest(){
     const newManifest = await processFiles("drivers",manifest,newVersion);
     if(newManifest){
       newManifest.version=newVersion;
+      const dateReleased = new Date().toLocaleDateString('en-GB').split("/").reverse().join("-")
+      newManifest.dateReleased=dateReleased;
       await fs.writeFile(MANIFEST_FILENAME, JSON.stringify(newManifest,null,2));
     }    
   }
