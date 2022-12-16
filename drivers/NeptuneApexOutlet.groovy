@@ -37,12 +37,12 @@ metadata {
 }
 
 void updated() {
-  log.info 'Driver updated....'
+  log.info "Apex Outlet Driver ${device.name} updated....."
   refresh()
 }
 
 void installed() {
-  log.info 'Drvier installed.....'
+  log.info "Apex Outlet Driver ${device.name} installed....."
 }
 
 void updateAttribute( String name, Object value ) {

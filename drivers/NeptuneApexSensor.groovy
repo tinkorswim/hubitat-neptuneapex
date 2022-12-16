@@ -33,12 +33,12 @@ metadata {
 }
 
 void updated() {
-  log.info 'Driver updated....'
+  log.info "Neptune Apex Sensor ${device.name} UPDATE....."
   refresh()
 }
 
 void installed() {
-  log.info 'Apex Sensor Driver installed.....'
+  log.info "Neptune Apex Sensor ${device.name} installed....."
 }
 
 void updateAttribute( String name, Object value ) {

@@ -17,10 +17,17 @@
  *  2022-11-26: Initial Development
  */
 
+import groovy.transform.Field
+
+@Field static Map DRIVER_TEMPERATURE =          [namespace:'hubitat',     name:'Generic Component Temperature Sensor']
+@Field static Map DRIVER_SWITCH =               [namespace:'hubitat',     name:'Generic Component Switch']
+@Field static Map DRIVER_WATER_SENSOR =         [namespace:'hubitat',     name:'Generic Component Water Sensor']
+@Field static Map DRIVER_APEX_GENERIC_SENSOR =  [namespace:'tinkorswim',  name:'Neptune Apex Sensor']
+
 metadata {
   definition(name: 'Neptune Apex',
     namespace: 'tinkorswim',
-    author: 'Louis Parks',
+    author: 'tinkorswim',
     importUrl: 'https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/main/drivers/NeptuneApex.groovy') {
     capability 'Actuator'
     capability 'Sensor'
@@ -166,25 +173,26 @@ void handleChildDevices(Map deviceInfo) {
       childEnergy?.updateAttribute('power', apexInput.value)
     }
     if (['in', 'digital', 'Temp', 'pH', 'Cond', 'ORP'].contains(apexInput.type)) {
-      childSwitch = loadChildInputDevice(apexInput)
-      if (childSwitch.hasCapability('WaterSensor')) {
+      childDevice = loadChildInputDevice(apexInput)
+
+      if (childDevice.hasCapability('WaterSensor')) {
         String waterState = apexInput.value == 0 ? 'dry' : 'wet'
         String descriptionText = "${device.displayName} water ${waterState}"
-        childSwitch?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
+        childDevice?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
       }
-      else if ( childSwitch.hasCapability('Switch')) {
+      else if ( childDevice.hasCapability('Switch')) {
         value = apexInput.value == 0 ? 'off' : 'on'
-        childSwitch?.sendEvent(name : 'switch',
+        childDevice?.sendEvent(name : 'switch',
           value : value,
           descriptionText : "Changing switch to ${value}")
       }
-      else if ( childSwitch.hasCapability('TemperatureMeasurement')) {
-        childSwitch?.sendEvent(name : 'temperature',
+      else if ( childDevice.hasCapability('TemperatureMeasurement')) {
+        childDevice?.sendEvent(name : 'temperature',
           value : apexInput.value,
           descriptionText : "Setting temperature value to ${apexInput.value}")
       }
       else {
-        childSwitch?.sendEvent(name : 'value',
+        childDevice?.sendEvent(name : 'value',
           value : apexInput.value,
           descriptionText : "Setting sensor value to ${apexInput.value}")
       }
@@ -195,7 +203,7 @@ void handleChildDevices(Map deviceInfo) {
 Object loadChildOutputDevice(Object output, boolean create=true) {
   child = getChildDevice(getChildDeviceNetworkId(output.did))
   if (child == null && create == true) {
-    log.info("Creating new outlet device for outlet ${output.name}")
+    log.info("Creating new outlet device for ${output.name}")
     child = addChildDevice('tinkorswim', 'Neptune Apex Outlet',
           getChildDeviceNetworkId(output.did), [name:output.name, label:output.name])
   }
@@ -203,29 +211,34 @@ Object loadChildOutputDevice(Object output, boolean create=true) {
 }
 
 Object loadChildInputDevice(Object apexInput, boolean create=true) {
-  Map deviceTypeMap = ['Temp':'Generic Component Temperature Sensor', 'pH':'Generic Component Temperature Sensor', 'digital':'Generic Component Switch']
-  String driverNamespace = 'hubitat'
-  String driverName = 'Generic Component Switch'
-  childSwitch = getChildDevice(getChildDeviceNetworkId(apexInput.did))
-  if (childSwitch == null && create == true) {
-    if ( getModuleTypeForInput(apexInput.did) == 'FMM' ) {
-      if ( apexInput.type == 'in' ) {
-        driverNamespace = 'tinkorswim'
-        driverName = 'Neptune Apex Sensor'
-      }
-      else {
-        driverName = 'Generic Component Water Sensor'
-      }
-    }
-    else {
-      driverName = deviceTypeMap[apexInput.type] ?: 'Generic Component Switch'
-    }
-
-    log.info("Creating new device - name[${apexInput.name}] did[(${apexInput.did})] type[${apexInput.type}] driver[${driverName}] ")
-    childSwitch = addChildDevice( driverNamespace, driverName,
-      getChildDeviceNetworkId(apexInput.did),[name:apexInput.name, label:apexInput.name])
+  childDevice = getChildDevice(getChildDeviceNetworkId(apexInput.did))
+  if (childDevice == null && create == true) {
+    childDevice = newInputChild(apexInput)
   }
-  return childSwitch
+  return childDevice
+}
+
+Object newInputChild(Object apexInput) {
+  Map deviceTypeMap = [
+    'Temp':DRIVER_TEMPERATURE,
+    'pH':DRIVER_APEX_GENERIC_SENSOR,
+    'digital':DRIVER_SWITCH
+  ]
+  deviceModule = getModuleTypeForInput(apexInput.did)
+
+  driver = APEX_GENERIC_SENSOR_DRIVER
+  switch (deviceModule) {
+    case 'FMM':
+      driver = (apexInput.type == 'in' ? DRIVER_APEX_GENERIC_SENSOR : DRIVER_WATER_SENSOR)
+      break
+    default:
+      driver = deviceTypeMap[apexInput.type] ?: APEX_GENERIC_SENSOR_DRIVER
+  }
+  log.info("creating new device - name[${apexInput.name}] did[(${apexInput.did})] module[${deviceModule}] type[${apexInput.type}] driver[${driver}] ")
+  childDevice = addChildDevice(driver.namespace, driver.name,
+      getChildDeviceNetworkId(apexInput.did),[name:apexInput.name, label:apexInput.name])
+
+  return childDevice
 }
 
 boolean includeDevice(Map device) {
