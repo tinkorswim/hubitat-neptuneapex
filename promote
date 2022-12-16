@@ -1,0 +1,26 @@
+#!/bin/bash
+
+die () {
+    echo >&2 "$@"
+    usage
+    exit 1
+}
+
+usage()
+{
+cat << EOF
+usage: ./promote {version} {public|preview}
+EOF
+}
+
+[ "$#" -eq 2 ] || die "2 arguments required, $# provided"
+
+public_tag="hbm_public"
+preview_tag="hbm_preview"
+
+RELEASE=0.0.12
+release_commit=$(git rev-list -n 1 $RELEASE)
+echo $release_commit
+#git push --delete origin hpm_public
+#git tag -a hbm_public $release_commit -m "GA in HPM"
+#git push origin hpm_public
