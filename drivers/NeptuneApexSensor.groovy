@@ -28,6 +28,7 @@ metadata {
         input name: 'debugEnable', type: 'bool', title: 'Enable debug logging', defaultValue: false
       }
     }
+  attribute 'type', 'string'
   attribute 'unit', 'string'
   attribute 'value', 'number'
 }

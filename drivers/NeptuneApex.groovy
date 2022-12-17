@@ -104,8 +104,9 @@ String getCronExpression() {
 }
 
 void cleanUpChildren() {
-  if (debugEnable) log.debug('cleaning up all child devices')
+  log.info("cleaning up ${getChildDevices().size()} child devices")
   getChildDevices().each { child ->
+    if (debugEnable) log.debug("cleaning up child ${child.name}")
     deleteChildDevice(child.deviceNetworkId)
   }
 }
@@ -167,35 +168,41 @@ void handleChildDevices(Map deviceInfo) {
   }
   inputs = deviceInfo.inputs.findAll { device -> includeDevice(device) }
   inputs.each { apexInput ->
-    if (apexInput.type == 'pwr') {
-      deviceName = apexInput.name.substring(0, (apexInput.name.length() - 1))
-      childEnergy = getChildDevice(getChildDeviceNetworkId(state.devices[deviceName]))
-      childEnergy?.updateAttribute('power', apexInput.value)
+    //skipping Amps and volts right now
+    if(['Amps','volts'].contains(apexInput.type)){
+      return
     }
-    if (['in', 'digital', 'Temp', 'pH', 'Cond', 'ORP'].contains(apexInput.type)) {
-      childDevice = loadChildInputDevice(apexInput)
 
-      if (childDevice.hasCapability('WaterSensor')) {
-        String waterState = apexInput.value == 0 ? 'dry' : 'wet'
-        String descriptionText = "${device.displayName} water ${waterState}"
-        childDevice?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
-      }
-      else if ( childDevice.hasCapability('Switch')) {
-        value = apexInput.value == 0 ? 'off' : 'on'
-        childDevice?.sendEvent(name : 'switch',
-          value : value,
-          descriptionText : "Changing switch to ${value}")
-      }
-      else if ( childDevice.hasCapability('TemperatureMeasurement')) {
-        childDevice?.sendEvent(name : 'temperature',
-          value : apexInput.value,
-          descriptionText : "Setting temperature value to ${apexInput.value}")
-      }
-      else {
-        childDevice?.sendEvent(name : 'value',
-          value : apexInput.value,
-          descriptionText : "Setting sensor value to ${apexInput.value}")
-      }
+    switch(apexInput.type){
+      case 'pwr':
+        //power shows up as an input, we will map it to the outlet and put there
+        deviceName = apexInput.name.substring(0, (apexInput.name.length() - 1))
+        childEnergy = getChildDevice(getChildDeviceNetworkId(state.devices[deviceName]))
+        childEnergy?.updateAttribute('power', apexInput.value)        
+        break;
+      default:
+        childDevice = loadChildInputDevice(apexInput)
+        if (childDevice.hasCapability('WaterSensor')) {
+          String waterState = apexInput.value == 0 ? 'dry' : 'wet'
+          String descriptionText = "${device.displayName} water ${waterState}"
+          childDevice?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
+        }
+        else if ( childDevice.hasCapability('Switch')) {
+          value = apexInput.value == 0 ? 'off' : 'on'
+          childDevice?.sendEvent(name : 'switch',
+            value : value,
+            descriptionText : "Changing switch to ${value}")
+        }
+        else if ( childDevice.hasCapability('TemperatureMeasurement')) {
+          childDevice?.sendEvent(name : 'temperature',
+            value : apexInput.value,
+            descriptionText : "Setting temperature value to ${apexInput.value}")
+        }
+        else {
+          childDevice?.sendEvent(name : 'value',
+            value : apexInput.value,
+            descriptionText : "Setting sensor value to ${apexInput.value}")
+        }
     }
   }
 }
@@ -225,19 +232,19 @@ Object newInputChild(Object apexInput) {
     'digital':DRIVER_SWITCH
   ]
   deviceModule = getModuleTypeForInput(apexInput.did)
-
-  driver = APEX_GENERIC_SENSOR_DRIVER
+  driver = DRIVER_APEX_GENERIC_SENSOR
   switch (deviceModule) {
     case 'FMM':
       driver = (apexInput.type == 'in' ? DRIVER_APEX_GENERIC_SENSOR : DRIVER_WATER_SENSOR)
-      break
+      break;
     default:
-      driver = deviceTypeMap[apexInput.type] ?: APEX_GENERIC_SENSOR_DRIVER
+      driver = deviceTypeMap[apexInput.type] ?: DRIVER_APEX_GENERIC_SENSOR
   }
   log.info("creating new device - name[${apexInput.name}] did[(${apexInput.did})] module[${deviceModule}] type[${apexInput.type}] driver[${driver}] ")
   childDevice = addChildDevice(driver.namespace, driver.name,
       getChildDeviceNetworkId(apexInput.did),[name:apexInput.name, label:apexInput.name])
-
+  childDevice?.sendEvent(name : 'type', value : apexInput.type,
+          descriptionText : "setting type to ${apexInput.type}")
   return childDevice
 }
 
@@ -261,7 +268,7 @@ void refresh() {
 
 void clearAttributes() {
   device.getSupportedAttributes().each { attribute ->
-    log.debug("clearing attribute ${attribute}")
+    if (debugEnable) log.debug("clearing attribute ${attribute}")
     updateAttribute(attribute.name, 0)
   }
 }
@@ -408,8 +415,11 @@ void syncApexNames(Map deviceStatus) {
 void updateChildName(Object device, Object child) {
   if (child != null && (device.name != child.name)) {
     log.info("Apex name sync for did:[${device.did}] new:[${device.name}] was:[${child.name}]")
+    //Update the label if its the same as name, otherwise lets leave it alone.
+    if(child.label==child.name){
+      child.label = device.name
+    }
     child.name = device.name
-    child.label = device.name
   }
 }
 
