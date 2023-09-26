@@ -65,8 +65,8 @@ preferences {
       description: 'Only add these child devices (by did, ex.. 2_8, 2_1) * for all devices)',
       defaultValue: '*'
     input name: 'readOnly', type: 'bool', title: 'Read Only Mode',
-      description:"These devices can't control the Apex", defaultValue: false
-    input name: 'syncApexNames', type: 'bool', title: 'Auto-sync Apex device names', defaultValue: true
+      description:"This device and it's children can't control the apex", defaultValue: true
+    input name: 'syncApexNames', type: 'bool', title: 'Auto-sync Apex device names.  Input and Output device Names changes on the apex will change the child device', defaultValue: true
     input name: 'debugEnable', type: 'bool', title: 'Enable debug logging', defaultValue: false
   }
 }
