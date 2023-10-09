@@ -2,8 +2,8 @@
   "packageName": "Neptune Apex Bridge",
   "author": "tinkorswim",
   "minimumHEVersion": "2.1.9",
-  "version": "0.0.16",
-  "dateReleased": "2023-09-27",
+  "version": "0.0.17",
+  "dateReleased": "2023-10-09",
   "releaseNotes": "",
   "documentationLink": "",
   "communityLink": "",
@@ -12,25 +12,25 @@
       "id": "25616768-84af-455c-b474-9dd28477d37a",
       "name": "Neptune Apex",
       "namespace": "tinkorswim",
-      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.15/drivers/NeptuneApex.groovy",
+      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.17/drivers/NeptuneApex.groovy",
       "required": true,
-      "version": "0.0.16"
+      "version": "0.0.17"
     },
     {
       "id": "06d2f3a7-7f8c-4f05-beb5-edec677553af",
       "name": "Neptune Apex Outlet",
       "namespace": "tinkorswim",
-      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.15/drivers/NeptuneApexOutlet.groovy",
+      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.17/drivers/NeptuneApexOutlet.groovy",
       "required": true,
-      "version": "0.0.16"
+      "version": "0.0.17"
     },
     {
       "id": "a7f1df4c-bb88-479f-96ba-f9677a49dae3",
       "name": "Neptune Apex Sensor",
       "namespace": "tinkorswim",
-      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.15/drivers/NeptuneApexSensor.groovy",
+      "location": "https://raw.githubusercontent.com/tinkorswim/hubitat-neptuneapex/0.0.17/drivers/NeptuneApexSensor.groovy",
       "required": true,
-      "version": "0.0.16"
+      "version": "0.0.17"
     }
   ]
 }
