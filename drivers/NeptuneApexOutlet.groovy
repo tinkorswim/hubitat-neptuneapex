@@ -37,12 +37,12 @@ metadata {
 }
 
 void updated() {
-  log.info "Apex Outlet Driver ${device.name} updated....."
+  if (debugEnable) log.debug "Apex Outlet Driver ${device.name} updated....."
   refresh()
 }
 
 void installed() {
-  log.info "Apex Outlet Driver ${device.name} installed....."
+  if (debugEnable) log.debug "Apex Outlet Driver ${device.name} installed....."
 }
 
 void updateAttribute( String name, Object value ) {
@@ -69,6 +69,6 @@ void off() {
 }
 
 void refresh() {
-  log.debug "refreshing requested for device ${device.name}"
+  if (debugEnable) log.debug "refreshing requested for device ${device.name}"
   parent?.refreshStatus()
 }

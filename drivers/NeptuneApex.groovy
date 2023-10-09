@@ -1,9 +1,9 @@
 /**
  *  Neptune Apex Driver
  *  Author: tinkorswim
- *  Date: 2022-11-26
+ *  Date: 2023-10-08
  *
- *  Copyright 2022 tinkorswim
+ *  Copyright 2023 tinkorswim
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -48,6 +48,7 @@ metadata {
   command 'feedD'
   command 'cancelFeed'
   command 'clearAttributes'
+  command 'syncDevices'
 }
 
 preferences {
@@ -60,10 +61,11 @@ preferences {
     input name: 'apexPassword', type: 'password', title: 'Password', defaultValue: '', required: true
     input name: 'pollFrequencySecs', type: 'number', title: 'Poll Frequency',
       description:'How often in seconds to poll the Apex. min 5, max 3540', defaultValue: 300, range: '5..3540'
+    input name: 'devicePrefix', type: 'text', title: 'Device Display Name Prefix', description:'Prefix all child devices with this name', defaultValue: '', required: false
     input name: 'devices',
       type: 'text', title: 'Devices',
-      description: 'Only add these child devices (by did, ex.. 2_8, 2_1) * for all devices)',
-      defaultValue: '*'
+      description: 'Only add these child devices (by did, ex.. 2_8, 2_1) leave blank for all devices',
+      defaultValue: ''
     input name: 'readOnly', type: 'bool', title: 'Read Only Mode',
       description:"This device and it's children can't control the apex", defaultValue: true
     input name: 'syncApexNames', type: 'bool', title: 'Auto-sync Apex device names.  Input and Output device Names changes on the apex will change the child device', defaultValue: true
@@ -77,16 +79,25 @@ void logsOff() {
 }
 
 void installed() {
-  log.info 'New Apex device installed...'
+  log.info("New Apex device installed...${device.displayName}(${device.name})")
+  if (!devicePrefix) {
+    device.updateSetting('devicePrefix', "${device.name} ")
+  }
   updated()
 }
 
 void updated() {
+  log.info "${device.displayName}(${device.name}) Preferences Updated"
   setState('whitelist', devices?.trim() ? devices.split(',').toList() : [])
   unschedule(refreshStatus)
   schedule(getCronExpression(), refreshStatus)
   if (logEnable) {
     runIn(1800, logsOff)
+  }
+  //lets try to populate children as soon as we have a host
+  if (apexHost && !state.devices) {
+    log.info 'Apex Devices not found, performing initial sync now'
+    syncDevices()
   }
 }
 
@@ -104,11 +115,23 @@ String getCronExpression() {
 }
 
 void cleanUpChildren() {
-  log.info("cleaning up ${getChildDevices().size()} child devices")
+  log.info("Cleaning up ${getChildDevices().size()} child devices")
   getChildDevices().each { child ->
     if (debugEnable) log.debug("cleaning up child ${child.name}")
     deleteChildDevice(child.deviceNetworkId)
   }
+}
+
+void syncDevices() {
+  log.info("Syncing devices with apex at ${apexHost}")
+  pollStatusAsync('handleStatusResponse', [create:true])
+}
+
+void pollStatusAsync(String handler, Map data=[:]) {
+  Map params = [uri: "http://${apexHost}/rest/status",
+    contentType: 'application/json',
+    headers: [Authorization:authHeader()]]
+  asynchttpGet(handler, params, data)
 }
 
 void startFeedCycle(int feedCycle) {
@@ -157,72 +180,82 @@ void cancelFeed() {
   startFeedCycle(0)
 }
 
-void handleChildDevices(Map deviceInfo) {
+void handleChildDevices(Map deviceInfo, boolean create) {
   outputs = deviceInfo.outputs.findAll { device -> includeDevice(device) }
   outputs.each { output ->
     if (output.type == 'outlet' || output.type == '24v' || output.type == 'virtual') {
-      child = loadChildOutputDevice(output)
-      child.updateAttribute('switch', output.status[0].toLowerCase().contains('on') ? 'on' : 'off')
-      child.updateAttribute('auto', output.status[0].toLowerCase().contains('a') ? 'true' : 'false')
+      child = loadChildOutputDevice(output, create)
+      if (child) {
+        child.updateAttribute('switch', output.status[0].toLowerCase().contains('on') ? 'on' : 'off')
+        child.updateAttribute('auto', output.status[0].toLowerCase().contains('a') ? 'true' : 'false')
+      }
     }
   }
+
   inputs = deviceInfo.inputs.findAll { device -> includeDevice(device) }
   inputs.each { apexInput ->
     //skipping Amps and volts right now
-    if(['Amps','volts'].contains(apexInput.type)){
+    if (['Amps', 'volts'].contains(apexInput.type)) {
       return
     }
 
-    switch(apexInput.type){
+    switch (apexInput.type) {
       case 'pwr':
         //power shows up as an input, we will map it to the outlet and put there
-        deviceName = apexInput.name.substring(0, (apexInput.name.length() - 1))
+        deviceName = apexInput.name[0..apexInput.name.length() - 1]
         childEnergy = getChildDevice(getChildDeviceNetworkId(state.devices[deviceName]))
-        childEnergy?.updateAttribute('power', apexInput.value)        
-        break;
+        childEnergy?.updateAttribute('power', apexInput.value)
+        break
       default:
-        childDevice = loadChildInputDevice(apexInput)
-        if (childDevice.hasCapability('WaterSensor')) {
-          String waterState = apexInput.value == 0 ? 'dry' : 'wet'
-          String descriptionText = "${device.displayName} water ${waterState}"
-          childDevice?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
-        }
-        else if ( childDevice.hasCapability('Switch')) {
-          value = apexInput.value == 0 ? 'off' : 'on'
-          childDevice?.sendEvent(name : 'switch',
-            value : value,
-            descriptionText : "Changing switch to ${value}")
-        }
-        else if ( childDevice.hasCapability('TemperatureMeasurement')) {
-          childDevice?.sendEvent(name : 'temperature',
-            value : apexInput.value,
-            descriptionText : "Setting temperature value to ${apexInput.value}")
-        }
-        else {
-          childDevice?.sendEvent(name : 'value',
-            value : apexInput.value,
-            descriptionText : "Setting sensor value to ${apexInput.value}")
+        childDevice = loadChildInputDevice(apexInput, create)
+        if (childDevice) {
+          if (childDevice.hasCapability('WaterSensor')) {
+            String waterState = apexInput.value == 0 ? 'dry' : 'wet'
+            String descriptionText = "${device.displayName} water ${waterState}"
+            childDevice?.sendEvent(name: 'water', value: waterState, descriptionText: descriptionText)
+          }
+          else if ( childDevice.hasCapability('Switch')) {
+            value = apexInput.value == 0 ? 'off' : 'on'
+            childDevice?.sendEvent(name : 'switch',
+              value : value,
+              descriptionText : "Changing switch to ${value}")
+          }
+          else if ( childDevice.hasCapability('TemperatureMeasurement')) {
+            childDevice?.sendEvent(name : 'temperature',
+              value : apexInput.value,
+              descriptionText : "Setting temperature value to ${apexInput.value}")
+          }
+          else {
+            childDevice?.sendEvent(name : 'value',
+              value : apexInput.value,
+              descriptionText : "Setting sensor value to ${apexInput.value}")
+          }
         }
     }
   }
 }
 
-Object loadChildOutputDevice(Object output, boolean create=true) {
+Object loadChildOutputDevice(Object output, boolean create) {
   child = getChildDevice(getChildDeviceNetworkId(output.did))
   if (child == null && create == true) {
-    log.info("Creating new outlet device for ${output.name}")
+    log.info("Creating new output device for ${output.name}")
     child = addChildDevice('tinkorswim', 'Neptune Apex Outlet',
-          getChildDeviceNetworkId(output.did), [name:output.name, label:output.name])
+          getChildDeviceNetworkId(output.did), [name:output.name, label:calculateLabel(output)])
   }
   return child
 }
 
-Object loadChildInputDevice(Object apexInput, boolean create=true) {
+Object loadChildInputDevice(Object apexInput, boolean create) {
   childDevice = getChildDevice(getChildDeviceNetworkId(apexInput.did))
   if (childDevice == null && create == true) {
+    log.info("Creating new input device for ${apexInput.name}")
     childDevice = newInputChild(apexInput)
   }
   return childDevice
+}
+
+String calculateLabel(Object device) {
+  return "${devicePrefix ?: ''}${device.name}"
 }
 
 Object newInputChild(Object apexInput) {
@@ -236,20 +269,23 @@ Object newInputChild(Object apexInput) {
   switch (deviceModule) {
     case 'FMM':
       driver = (apexInput.type == 'in' ? DRIVER_APEX_GENERIC_SENSOR : DRIVER_WATER_SENSOR)
-      break;
+      break
     default:
       driver = deviceTypeMap[apexInput.type] ?: DRIVER_APEX_GENERIC_SENSOR
   }
-  log.info("creating new device - name[${apexInput.name}] did[(${apexInput.did})] module[${deviceModule}] type[${apexInput.type}] driver[${driver}] ")
+  if (debugEnable) log.debug("creating new device - name[${apexInput.name}] did[(${apexInput.did})] module[${deviceModule}] type[${apexInput.type}] driver[${driver}] ")
   childDevice = addChildDevice(driver.namespace, driver.name,
-      getChildDeviceNetworkId(apexInput.did),[name:apexInput.name, label:apexInput.name])
+      getChildDeviceNetworkId(apexInput.did), [name:apexInput.name, label:calculateLabel(apexInput)])
   childDevice?.sendEvent(name : 'type', value : apexInput.type,
           descriptionText : "setting type to ${apexInput.type}")
   return childDevice
 }
 
 boolean includeDevice(Map device) {
-  return state.whitelist.contains('*') ? true : state.whitelist.contains(device.did)
+  if (state.whitelist.size() == 0) {
+    return true
+  }
+  return state.whitelist.contains(device.did)
 }
 
 String getChildDeviceNetworkId(String did) {
@@ -275,16 +311,15 @@ void clearAttributes() {
 
 void refreshStatus() {
   if (debugEnable) log.debug('Refreshing Apex device status')
-  Map params = [uri: "http://${apexHost}/rest/status",
-    contentType: 'application/json',
-    headers: [Authorization:authHeader()]]
-  asynchttpGet('handleStatusResponse', params)
+  pollStatusAsync('handleStatusResponse')
+  updateLastRefresh()
 }
 
 String authHeader() {
   return 'Basic ' + (apexUsername + ':' + apexPassword).bytes.encodeBase64()
 }
 
+/* groovylint-disable-next-line ParameterCount */
 void updateOutputDevice(String deviceNetworkId,
   String attribute,
   String did,
@@ -347,7 +382,7 @@ void handleStatusResponse(hubitat.scheduling.AsyncResponse resp, Map data) {
       deviceStatus = parseJson(resp.data)
       updateHardware(deviceStatus)
       updateBaseAttributes(deviceStatus)
-      handleChildDevices(deviceStatus)
+      handleChildDevices(deviceStatus, data['create'] ?: false)
       break
     default:
       if (debugEnable) log.debug("error executing Apex command: ${ resp.status } with data ${data}")
@@ -397,17 +432,21 @@ void updateHardware(Map deviceStatus) {
   setState('devices', outputs + (inputs))
 
   if ( syncApexNames ) {
-    syncApexNames(deviceStatus)
+    syncApexNames(deviceStatus, false)
   }
 }
 
-void syncApexNames(Map deviceStatus) {
+void updateLastRefresh() {
+  setState('lastRefresh', new Date().format('YYYY-MM-dd \n HH:mm:ss', location.timeZone) )
+}
+
+void syncApexNames(Map deviceStatus, boolean create) {
   (deviceStatus.outputs).each { device ->
-      child = loadChildOutputDevice(device, false)
+      child = loadChildOutputDevice(device, create)
       updateChildName(device, child)
   }
   (deviceStatus.inputs).each { device ->
-      child = loadChildInputDevice(device, false)
+      child = loadChildInputDevice(device, create)
       updateChildName(device, child)
   }
 }
@@ -416,13 +455,13 @@ void updateChildName(Object device, Object child) {
   if (child != null && (device.name != child.name)) {
     log.info("Apex name sync for did:[${device.did}] new:[${device.name}] was:[${child.name}]")
     //Update the label if its the same as name, otherwise lets leave it alone.
-    if(child.label==child.name){
-      child.label = device.name
+    if (child.label == calculateLabel(child)) {
+      child.label = calculateLabel(device)
     }
     child.name = device.name
   }
 }
 
 void componentRefresh(Object component) {
-  log.info("component refresh called for ${component}" )
+  if (debugEnable) log.debug("component refresh called for ${component}" )
 }
