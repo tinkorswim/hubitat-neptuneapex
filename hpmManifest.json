@@ -1,5 +1,5 @@
 {
-  "packageName": "Neptune Apex Bridge",
+  "packageName": "Neptune Apex Bridge (A3 series)",
   "author": "tinkorswim",
   "minimumHEVersion": "2.1.9",
   "version": "0.0.17",
@@ -7,6 +7,7 @@
   "releaseNotes": "",
   "documentationLink": "",
   "communityLink": "",
+  "description": "Monitoring and control a Neptune Systems Apex aquarium controller",
   "drivers": [
     {
       "id": "25616768-84af-455c-b474-9dd28477d37a",
