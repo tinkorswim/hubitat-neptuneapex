@@ -198,11 +198,11 @@ void handleChildDevices(Map deviceInfo, boolean create) {
     if (['Amps', 'volts'].contains(apexInput.type)) {
       return
     }
-
+    
     switch (apexInput.type) {
       case 'pwr':
         //power shows up as an input, we will map it to the outlet and put there
-        deviceName = apexInput.name[0..apexInput.name.length() - 1]
+        deviceName = apexInput.name[0..apexInput.name.length() - 2]
         childEnergy = getChildDevice(getChildDeviceNetworkId(state.devices[deviceName]))
         childEnergy?.updateAttribute('power', apexInput.value)
         break
