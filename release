@@ -1,0 +1,14 @@
+#!/bin/bash
+increment_version() {
+  local delimiter=.
+  local array=($(echo "$1" | tr $delimiter '\n'))
+  array[$2]=$((array[$2]+1))
+  echo $(local IFS=$delimiter ; echo "${array[*]}")
+}
+version=$(cat VERSION)
+new_version=$(increment_version "${version}" 2)
+echo "Incrementing version from ${version} to ${new_version}"
+echo "${new_version}" | tr -d '\n' > VERSION
+node hpm.js
+git commit -am  "${new_version}"
+git push origin main
